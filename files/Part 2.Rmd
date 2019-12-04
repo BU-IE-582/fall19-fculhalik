@@ -1,0 +1,209 @@
+---
+title: "IE 423 Homework 2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(jpeg)
+library(fitdistrplus)
+library(graphics)
+library(grDevices)
+
+```
+
+# Part 1
+
+## a)
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/image.jpg")
+sumrow=vector()
+rowmean=vector()
+stdevrow=vector()
+lclrow=vector()
+uclrow=vector()
+
+for(i in 1:400){
+  sumrow[i]=0
+  for(j in 1:400){
+  sumrow[i]=sumrow[i]+img[i,j,1]
+  }
+  rowmean[i]=(sumrow[i]/400)
+  stdevrow[i]=sd(img[i,,1])
+  lclrow[i]=rowmean[i]-(3*stdevrow[i])
+  uclrow[i]=rowmean[i]+(3*stdevrow[i])
+}
+
+imgnew1=array()
+imgnew1=img[,,1]
+
+for(i in 1:400){
+  for(j in 1:400){
+    if(img[i,j,1]<lclrow[i] | img[i,j,1]>uclrow[i]){
+      imgnew1[i,j]=0
+    }
+  }
+}
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(imgnew1,1,1,2,2)
+}
+
+```
+
+The original image generally comprises a light-gray color scale with dark-gray lines and areas distributed all around the image. Before any execution on the image, this characteristic of the image implies that these dark-gray lines and areas are outliers within the entirety of the image.
+
+After the quality controls based on the pixel values of image rows are implemented, dark-gray lines became more evident as their colors were changed to black. These lines were detected to be outliers and their pixel values were changed to 0 which approves the initial observation made on the original image. There are two potentially ignored outliers due to an ineffectiveness of the quality control procedure. Firstly, it seems like all outliers detected are those with low pixel values. No outlier with high pixel value (close to white color) seems to be detected in the procedure. This implies that the quality control was almost a one-sided one. Secondly, although dark lines were detected, dark areas were left undetected which might be a result of choosing a high k value. 6-sigma control procedure might have been an improper one for this image. Another reason for these two potential errors may be about ineffectiveness of conducting a row-based quality control procedure. A procedure based on columns or artificial windows within the image are the two control alternatives.
+
+## b)
+
+```{r}
+sumcolumn=vector()
+columnmean=vector()
+stdevcolumn=vector()
+lclcolumn=vector()
+uclcolumn=vector()
+
+for(j in 1:400){
+  sumcolumn[j]=0
+  for(i in 1:400){
+    sumcolumn[j]=sumcolumn[j]+img[i,j,1]
+  }
+  columnmean[j]=(sumcolumn[j]/400)
+  stdevcolumn[j]=sd(img[,j,1])
+  lclcolumn[j]=columnmean[j]-(3*stdevcolumn[j])
+  uclcolumn[j]=columnmean[j]+(3*stdevcolumn[j])
+}
+
+imgnew2=array()
+imgnew2=img[,,1]
+
+for(j in 1:400){
+  for(i in 1:400){
+    if(img[i,j,1]<lclcolumn[j] | img[i,j,1]>uclcolumn[j]){
+      imgnew2[i,j]=0
+    }
+  }
+}
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(imgnew2,1,1,2,2)
+}
+
+```
+
+Once the quality control is implemented based on the pixel value distributions within the image columns, the resulting image is similar to the one resulted with row-based control. The mere difference is that a few pixels identified as outliers in the row-based control were not identified in the column-based control and vice versa. However, potential errors stated according to the image output of row-based control are present in this image as well. In order to assess the performance of row/column-based control procedures, four quality control charts of randomly chosen rows are shown beneath.
+
+```{r}
+plot(img[100,,1], ylim=c(0.5,1))
+abline(h=lclrow[100])
+abline(h=uclrow[100])
+abline(h=rowmean[100])
+
+plot(img[200,,1], ylim=c(0.5,1))
+abline(h=lclrow[200])
+abline(h=uclrow[200])
+abline(h=rowmean[200])
+
+plot(img[300,,1], ylim=c(0.5,1))
+abline(h=lclrow[300])
+abline(h=uclrow[300])
+abline(h=rowmean[300])
+
+plot(img[400,,1], ylim=c(0.5,1))
+abline(h=lclrow[400])
+abline(h=uclrow[400])
+abline(h=rowmean[400])
+
+```
+
+These four control charts approve the observations made based on the output images. The detected outliers are all those with low pixel values which are of the dark lines identified as potential outliers on the original image. However, observing the distribution of pixel values, this does not seem to identify a problem. There does not seem to be any pixel value close to upper control limits. Hence, the characteristic of the control procedure being a one-sided one is a consequence of image characteristics.
+
+There are a few pixel values which are close to lower control limits but not identified as outliers. These are pixel values of the dark-gray areas. If instead of 6-sigma control procedure, a tighter k value was chosen, these areas would be identified as outliers and they would be made black as well. However, in that case, several pixel values could have been identified as outliers which would result with inability to identify those dark lines clearly, mixing some light-gray pixels with them. Also, dark lines would be unidentifiable as lines are within those dark areas.
+
+According to these observations, 6-sigma control limit was an effective one to identify dark-gray lines. Implementing the control based on rows or columns has not made much of a difference in terms of performance. However, a window-based control procedure may result with a totally different image. Based on the general image characteristics, such an approach would perform poorly. Dark lines are within the dark areas in the image. Hence, if a window-based control was conducted, dark lines might have been unidentifiable.
+Overall, a 6-sigma control chart based on rows or columns performed well for our image to detect outlier pixels.
+
+# Part 2
+
+
+```{r}
+img<-img[,,1]
+data <- array(0, dim=c(51,51,4900))
+for(i in 1:4900){
+  for(a in 1:51){
+    for(b in 1:51){
+      data[a,b,i]<-img[a+5*((i-1)%/%70),b+5*((i-1)%%70)]}}}
+darray<-array(0,dim=c(2601,4900))
+for(c in 1:4900)
+{for(i in 1:51){
+   for(j in 1:51){
+     darray[(i-1)*51+j,c]<-data[i,j,c]}}}
+yvalues<-darray[1301,]
+ourdataframe<-data.frame(yvalues)
+
+for(i in 1:2601){
+   if(i==1301)
+    {next}
+   ourdataframe<-cbind(ourdataframe,darray[i,])}
+
+names(ourdataframe) <- c(paste("x", 1:2601, sep=""))
+
+
+data2 <- array(0, dim=c(51,51,122500))
+for(i in 1:122500){
+  for(a in 1:51){
+    for(b in 1:51){
+      data2[a,b,i]<-img[a+((i-1)%/%350),b+((i-1)%%350)]}}}
+
+darray2<-array(0,dim=c(2601,122500))
+
+for(c in 1:122500)
+{for(i in 1:51){
+  for(j in 1:51){
+    darray2[(i-1)*51+j,c]<-data2[i,j,c]}}}
+
+ourdataset<-data.frame(darray2[1,])
+
+for(i in 2:2601){
+  ourdataset<-cbind(ourdataset,darray2[i,])}
+
+names(ourdataset) <- c(paste("x", 2:2601, sep=""))
+mymodel<-lm(x1~.,data=ourdataframe)
+summary(mymodel)
+predicted <-array(0,dim=122500)
+predicted<-predict(mymodel,ourdataset)
+residual <-array(0,dim=122500)
+
+for(i in 1:350)
+{
+  for(j in 1:350)
+  {
+    residual[350*(i-1)+j] = img[25+i,25+j] - predicted[350*(i-1)+j] 
+  } 
+}
+histogram <- hist(residual,breaks=50, include.lowest=FALSE, right=FALSE)
+fitdistr(residual,"normal")
+upperlimit<-mean(residual)+3*sd(residual)
+lowerlimit<-mean(residual)-3*sd(residual)
+
+imgnew<-img
+
+for(i in 1:122500){
+if((residual[i]<lowerlimit)|(residual[i]>upperlimit)){
+imgnew[((i-1)%/%350)+26,((i-1)%%350)+26]<-0}}
+
+if(exists("rasterImage")){
+plot(x=c(0,2.1),y=c(0,1), type='n', xlab = "", ylab = "")
+rasterImage(img,1.1,0,2.1,1,interpolate = FALSE)
+rasterImage(imgnew,0,0,1,1,interpolate=FALSE) }
+
+```
+
+The pixels that gave out-of-bounds residuals were difficult to predict by predictor pixels, and their estimation was way off their real values. This is because these pixels are starkly darker or lighter than their surrounding pixels, and their surrounding pixels don’t help us anticipate the sudden increase in darkness in the particular pixel that we are interested in. This notion is consistent with the plotted images, we can see from the images that the areas with a sudden change of color are made black in the edited image for giving our-of-bounds residuals. This can be helpful in quality control because the areas with a sudden change of color, which may be the signs of poor quality, are made more visible in the edited image so that their controllers can discern them more easily. 
+
+It is true that our 2600 predictors are strongly correlated with each other, and using them as separate predictors is not a very good idea. In order to decrease the correlation between different predictors, we may use larger predictors that incorporate more than one pixel. For example, the average of pixels that are 0-5 pixels away from the center (the predicted pixel) may be used as the first predictor, the average of pixels that are 5-15 pixels away from the center may be used as the second predictor, the average of pixels that are 15-30 pixels away from the center may be used as the third predictor, and the average of pixels that are 30-51 pixels away from the center may be used as the fourth predictor. Since now there would be a wider gap between the predictors, the correlation between them would fall although it still wouldn’t disappear completely. The first predictor would have a higher coefficient in the regression line because it is a more reliable predictor of the center due to its proximity, and the coefficients would tend to fall as we go from the first predictor to the fourth one. This method would also require less computational complexity when compared to our regression line with 2600 independent variables.
+
+
