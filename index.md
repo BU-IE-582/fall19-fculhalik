@@ -6,7 +6,7 @@ We are the Group 2. Our group members are:
 3. Dürdane Karabacak
 4. Furkan Başkan
 5. Mehmet Fatih Çulhalık
-6. Eyüp Taşcı
+asdasdasadas
 
 ## Project Part 1
 [Here](files/Part 1.html) is our Project Part 1.
