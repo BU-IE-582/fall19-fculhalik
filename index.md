@@ -13,3 +13,6 @@ We are the Group 2. Our group members are:
 
 ## Project Part 2
 [Here](files/Part 2.html) is our Project Part 2.
+
+## Project Part 3
+[Here](files/Part 3.html) is our Project Part 3.

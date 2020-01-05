@@ -1,0 +1,2267 @@
+---
+title: "IE 423 Project Part 3 - Group 2"
+author: Abdulsamed Kağıt, Fatih Çulhalık, Doğanay Tuhan, Dürdane Karabacak, Furkan Başkan, Eyüp Taşçı
+output: html_document
+---
+
+# Introduction
+
+## What is linen?
+
+Linen is a very durable textile manufactured from the flax plant, Linum usitatissimum. It has been used for centuries — since approximately 10,000 years ago — to produce products including canvases, wallpapers, clothes and beddings. 
+One of the most important characteristics of linen is the ability of flax fiber, raw material of linen, to absorb moisture perfectly. In general, linen can absorb up to 20% of its own weight in water, before starting to feel damp. Besides, linen is a very breathable fabric. Thanks to its hollow structure, linen quickly dries and does not stick to body. This is why it is preferred in hot and humid weather. What is more, linen is very healthy and commonly used by people who suffer from allergic diseases. However, there are drawbacks to linen, including its laboriousness of processing, compared to alternatives such as cotton.
+
+## Why is it important to monitor processing of linens? What are the motivations regarding the use of images and identification of defects in linen manufacturing?
+
+Quality has a considerable effect when it comes to linen manufacturing. In the competitive environment of linen sector, quality control asserts itself as a market differentiator. Inadequate or inaccurate inspection of linen fabrics causes fabric defects being overlooked. This has some severe effects like rise of costs, loss of goodwill of the customers and waste of energy. Some possible defect types in linen manufacturing are holes and misprinting, shade variation and horizontal lines.
+
+## Background information: What has been done in the literature regarding the process monitoring on linen?
+
+The existing methodology followed in the sector is inspection of fabrics manually by the workers in factories. Clearly, this is not an effective method to detect defects in manufacturing processes, since human error is a significant factor. Workers cannot be expected to inspect a large number of linen products without making mistakes. Additionally, the variability of defects makes quality control even harder. The waste of a huge labor capital and time is another issue. Lastly, high labor expenses arises as a significant problem considering that a huge number of workers are required for process control and these workers should be trained to be able to conduct inspection successfully.
+
+Before deciding our approach, we investigated some articles and real-life applications of image processing to detect and classify defects in the industry. In the article of Mohamed, Baghdadi, and Faouzi, they mention that a system for the detection and classification of defects in a simple and efficient way using techniques of image processing. Currently, much of the fabric inspection is performed manually in the industry, but this procedure should be applied on some digital systems which will help to reduce or prevent defects. In fabric manufacturing. With the most qualified inspectors, only some defects are detected. Even though there are lots of anomalities during manufacturing procedure of fabrics, the methodology given in the articles contains weft threads, oil stains and holes. To detect those, they come up with an idea of binary version of the image. Initially the pixels of the picture is transformed into a binary pixels by applying some boundary values on them.  Then, to detect the oil stains mainly dividing the processed image into sections and calculating the percentage of black pixels in each section is made.  To detect holes, percentage of white pixels in the binary image is calculated and sorted to find hole areas. The similar procedure is made on binary image to detect missing threads in weft or warp
+
+## Approach: Explain your approach to this problem
+
+	In order to ensure accurate monitoring of processed linens, a preprocessing tool was utilized. Initially, all fabrics were transformed to grayscale images. Then, using Gabor Filtering tool in R, all 20 images were filtered. As the result of Gabor Filtering preprocessing, the defective parts of the fabrics, the parts which did not obey the pattern of the fabric, became much more evident in the filtered images. With these filtered images, control charts were able to easily detect the defective parts.
+	
+	While implementing Gabor Filtering, choosing suitable parameters for each fabric according to their patterns was the essential concern. The parameters for Gabor Filtering were Lamda (wavelength), theta (angle), bw (bandwidth), phi (offset) and asp (ellipticity).   Through intuition an experimenting, for each fabric, specific parameters were determined. With these parameters, Gabor Filtering was implemented on all of the images.
+	
+	After Gabor Filtering step, quality controlling process started. Controls were implemented on filtered images. On each filtered image, three quality control methods were implemented. These quality control charts were all x-bar charts. Firstly, a window-based control was utilized. Windows of size 16*16 were constructed over the entire image. Mean pixel values of these windows were recorded. The average of these mean pixel values of windows were calculated and used as the mean parameter for x-bar chart. As K-value, 55 was used and as Sigma, 110 was used. These parameters were chosen based on experimentation on the filtered images. Parameters which were able to successfully detect outlier windows were chosen. Secondly, a column-based control was utilized. The width of columns was determined as 4 and their lengths spanned the entire image from upper corner to below corner. The means of pixel values within the columns were recorded and their averages were used as mean parameter for x-bar charts. The same procedure used for column-based control was finally implemented for rows. For row-based and column-based methods, K-value was chosen as 50 and Sigma was chosen as 100.
+	
+	In the end, the outliers determined by these three control methods were merged in the original image and the determined outliers were painted black on the original images. By comparing defective parts in the original image and detected outliers, the overall process success was discussed in this report.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(jpeg)
+library(wvtool)
+library(qcc)
+library(jpeg)
+```
+
+# Application
+
+## Photo 1
+
+```{r cars}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric1.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=16, theta=180, bw=1.2, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The clearly defective line in the middle of the fabric was successfully detected. There are 2 additional lines determined as defective which are not actually defects. This is due to the design of the fabric which is not perfectly same over the entire product. Therefore, these lines were detected as outliers although they are not defective. Finally, there is a rectangle in the middle of the image which occurred due to the defective line in the middle. That defective line caused a couple of windows to be outliers in the window-based control process.
+
+## Photo 2
+
+```{r pressure, echo=FALSE}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric2.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=16, theta=180, bw=1.2, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+There are two defective lines near the middle of the fabric, in the original image. Those two lines were successfully detected. Two outlier rectangles were found, which do not correspond to any defect in the fabric. However, those windows correspond to some darker parts in the original fabric, which are not defective but still outliers in the original design.
+
+## Photo 3
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric3.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=25, theta=15, bw=1.2, phi=0, asp=1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective circle in the middle of the original image was detected. However, its’ place was not accurately found. The part painted-black is slightly to the left of the original defect. This may be due to an inconsistency in the window-based quality control method.
+
+## Photo 4
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric4.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=16, theta=180, bw=1.2, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle-left of the original image was successfully detected. However, once again, due to an inconsistency with the window-based method, some non-defective part in the upper part of the fabric were determined as outliers.
+
+## Photo 5
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric5.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=25, theta=90, bw=1, phi=0, asp=0.1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+There are many defective parts in the original image which were all detected in the control procedure. Especially the defective line in the middle and the left corner of the image were very evident and they were detected successfully. Furthermore, slight defects were also detected.
+
+## Photo 6
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric6.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=18, theta=90, bw=1.4, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle of the image was successfully detected. Due to variant nature of the design, some non-defective outliers in the original fabric were also detected as defective. However, this is due to the characteristics of the design itself; that there are some white-dominant parts in the design.
+
+## Photo 7
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric7.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=20, theta=90, bw=1.5, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The large defective line in the middle of the fabric was detected. There are some several other outlier lines detected which are not actually defective. This is a result of the fact that the control limits were not large enough for this fabric. This is a fabric with a complex design and therefore, requires larger control limits.
+
+## Photo 8
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric8.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=20, theta=90, bw=1, phi=0, asp=0.1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The procedure detected the clearly defective line in the middle of the fabric. Furthermore, the line at the left part of the image and several windows along the middle of the image correspond to slight defects in the fabric. Hence, the procedure successfully detected all defects in the fabric.
+
+## Photo 9
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric9.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=20, theta=90, bw=1.3, phi=0, asp=0.75)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle of the fabric was detected. There are several outlier parts in the fabric, with white-dominance, but not defective. Still, those outlier parts were detected as defective in the process control. This is due to the nature of the design.
+
+## Photo 10
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric10.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=20, theta=90, bw=1.3, phi=0, asp=0.25)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The clearly defective line in the middle of the fabric was detected. Furthermore, some slight defects were also found during the procedure. It was especially a significant success of the procedure to detect defective windows at the right part of the fabric.
+
+## Photo 11
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric11.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=30, theta=90, bw=1, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+There is a large defective part in the middle of the fabric which was successfully detected. Furthermore, some slight defects, especially at the upper part of the fabric, were also detected successfully.
+
+## Photo 12
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric12.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=12, theta=180, bw=1.3, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+ 
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle of the fabric was detected. However, similar to the problem in Fabric 4, an inconsistency with the window-based method caused some non-defective parts to be found as outliers.
+
+## Photo 13
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric13.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=12, theta=90, bw=1.3, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The procedure detected the defective line in the middle of the fabric. The design of the fabric contains some parts with slightly outlier characteristics, which caused the window-based control to detect them as defective parts.
+
+## Photo 14
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric14.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=12, theta=180, bw=1.3, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle of the image was successfully identified both by the row-based control method and the window-based control method.
+
+## Photo 15
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric15.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=12, theta=90, bw=1.3, phi=0, asp=0.5)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line at the left part of the fabric, close to the middle, was detected successfully. However, some non-defective parts were identified as outliers by the window-based control method.
+
+## Photo 16
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric16.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=20, theta=90, bw=1.2, phi=0, asp=1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line along the middle of the fabric and the circle in the middle of the defective line were successfully detected. There are once again several irrelevant outlier windows which is caused by an inconsistency with the window-based method.
+
+## Photo 17
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric17.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=30, theta=90, bw=1.4, phi=0, asp=0.75)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective line in the middle of the fabric was identified. Furthermore, some other outlier lines were found in the procedure, which correspond to several other defects within the area spanned by the corresponding outlier lines.
+
+## Photo 18
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric18.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=11, theta=80, bw=1.2, phi=0, asp=0.8)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective circle in the middle of the image was successfully detected although the accuracy of placement was not 100%. This is the only fabric that a defective part was not found, which actually exists at the south-east part of the fabric. The parameters of Gabor Filtering should be revised for this image.
+
+## Photo 19
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric19.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=25, theta=90, bw=1.2, phi=0, asp=1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective region in the middle of the fabric was identified both by the window-based method and column-based method. The only problem is with the slight inaccuracy of location detection.
+
+## Photo 20
+
+```{r}
+img <- readJPEG("C:/Users/Proje11/Desktop/423grayscale/fabric20.jpg")
+img=img[,,1]
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+
+
+test=gabor.filter(img, lamda=30, theta=90, bw=1, phi=0, asp=1)
+asd=test$filtered_img
+asdscaled=asd/max(asd)
+img2=asdscaled
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(asdscaled,1,1,2,2)
+}
+columncheck=array(asdscaled,dim=c(2048,128))
+
+sbar=0
+
+for(i in 1:128){
+  sbar=sbar+sd(columncheck[,i])}
+sbar=sbar/128
+upperlimit=mean(columncheck)+50*sbar/sqrt(2048) 
+lowerlimit=mean(columncheck)-50*sbar/sqrt(2048)
+for(i in 1:128){
+  if((mean(columncheck[,i])<lowerlimit)|(mean(columncheck[,i])>upperlimit)){
+    img[,4*i]=0
+    img[,4*i-1]=0
+    img[,4*i-2]=0
+    img[,4*i-3]=0}}
+
+xbar_chart <- qcc(data = t(columncheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+asdscaledt=t(asdscaled)
+rowcheck=array(asdscaledt,dim=c(2048,128))
+sbarr=0
+for(i in 1:128){
+  sbarr=sbarr+sd(rowcheck[,i])}
+sbarr=sbarr/128
+upperlimitrow=mean(rowcheck)+50*sbarr/sqrt(2048) 
+lowerlimitrow=mean(rowcheck)-50*sbarr/sqrt(2048)
+for(i in 1:128){
+  if((mean(rowcheck[,i])<lowerlimitrow)|(mean(rowcheck[,i])>upperlimitrow)){
+    img[4*i,]=0
+    img[4*i-1,]=0
+    img[4*i-2,]=0
+    img[4*i-3,]=0}}
+xbar_chart <- qcc(data = t(rowcheck),type="xbar",nsigmas=50, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+j=1
+windowmean <- array()
+temporary <- array()
+s <- array()
+data <-array(0,dim = c(1024,256))
+for(i in seq(1,512,16)){
+  for(m in seq(1,512,16)){o=1
+  for(k in 0:15){
+    for(l in 0:15){
+      temporary <- c(temporary,img2[i+k,m+l])
+      data[j,o] <- img2[i+k,m+l]
+      o=o+1
+    }
+  }
+  windowmean[j] = sum(temporary,na.rm=TRUE) /16/16
+  s[j] = sd(temporary,na.rm = TRUE)
+  j=j+1
+  temporary<-array()
+  }
+}
+
+xbarchartmean = mean(windowmean)
+
+xbarchartsigma = mean(s)/16/0.999
+
+for(i in 1:1024)
+{
+  if(windowmean[i] < (-55*xbarchartsigma + xbarchartmean))
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+ k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+  
+  if(windowmean[i] > 55 * xbarchartsigma + xbarchartmean)
+  {
+    for(k in 1:16){
+      for(l in 1:16){
+        img[((i-1)%%32)*16+k,((i-1)%/%32)*16+l] = 0
+      }
+    }
+  }
+}
+xbar_chart <- qcc(data =data,type="xbar",nsigmas=40, title="X-Bar Chart",digits=4, plot = TRUE)
+
+
+if(exists("rasterImage")){
+  plot(1:2, type='n')
+  rasterImage(img,1,1,2,2)}
+```
+
+The defective part in the middle of the fabric was determined both by the window-based and column-based methods. What’s more, the location placement was 100% accurate with this fabric.
+
+# Conclusion
+
+ The general performance of the procedure followed in this project was successful considering that except one fabric, all defects existing in the fabrics were detected by at least one of the three control methods. Since these three control methods were merged, defects were not overlooked and Type 2 errors were very limited. However, merging them caused detection of non-defective parts as outliers at several fabrics, risking high Type 1 errors. This problem was related to the inadequacy or excess of control limits with some of the fabrics. Hence, specific control limits can be used for each fabric design, similar to using specific Gabor Filtering parameters.
+ 
+	It was cumbersome to experiment and find suitable Gabor Filtering parameters for each fabric and most probably, the optimal parameters were not found. Through further research on Gabor Filtering and parameter selection, a better preprocessing of images can be ensured; which may increase quality control procedure as well.
+	
+	A common problem with several fabrics is related to an inconsistency with window-based control method. The method detected non-defective parts sometimes and also it was not accurate in location identification. This problem might be related to the window sizes and control limits. So, some further trials with different window parameters can be done, to check if the performance gets better.
+	
+	In conclusion, the two-phased procedure followed in this project was generally successful. These two phases identify preprocessing with Gabor Filtering and quality control with three methods. Cooperating these two phases resulted with the ability of detecting defective parts in fabrics with ease. Without Gabor Filtering, the defective parts in the images would not be detectable. Without using quality control charts, visual identification of defects with filtered image is not sustainable. Therefore, combination of these methods resulted with an effective linen quality monitoring methodology.
+
+
